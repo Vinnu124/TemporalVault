@@ -3,9 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from datetime import datetime
 
-Base = declarative_base()
-
-
+from app.database import Base
 class TemporalRecord(Base):
     __tablename__ = 'temporal_records'
 
@@ -17,7 +15,6 @@ class TemporalRecord(Base):
                        default=func.now(), nullable=False)
     previous_version = Column(String, nullable=True)
 
-    # Indexes for faster querying
     __table_args__ = (
         Index('idx_record_timestamp', 'record_id', 'timestamp'),
         Index('idx_version', 'version'),

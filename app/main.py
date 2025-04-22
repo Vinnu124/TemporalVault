@@ -1,3 +1,5 @@
+from .models import TemporalRecord, Snapshot
+from .database import get_db
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -9,11 +11,19 @@ from dotenv import load_dotenv
 from prometheus_client import Counter, Histogram, make_asgi_app
 from prometheus_client.core import CollectorRegistry
 from sqlalchemy import text
+from pydantic import BaseModel
+from .database import init_db
+import app.models
+init_db()
 
-from .database import get_db
-from .models import TemporalRecord, Snapshot
 
 load_dotenv()
+
+
+class RecordRequest(BaseModel):
+    record_id: str
+    data: dict
+
 
 # Create Prometheus metrics
 registry = CollectorRegistry()
@@ -56,7 +66,7 @@ redis_client = redis.Redis(
 @app.post("/records")
 async def create_record(
     record_id: str,
-    data: dict,
+    data: str = Query(..., description="JSON-encoded data"),
     db: Session = Depends(get_db)
 ):
     """Create a new record version"""
