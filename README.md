@@ -37,12 +37,13 @@ cp .env.example .env
 3. Run the application:
 
 ```bash
-uvicorn app.main:app --reload
+docker compose up
 ```
 
 ## API Endpoints
 
-- `GET /query?timestamp={timestamp}` - Query data at a specific timestamp
+- `POST /records?record_id=abc123&data={"name":"John Doe","email":"johndoe@example.com"}` -Records data
+- `GET /query?record_id={record_id}&timestamp={timestamp}` - Query data at a specific timestamp
 - `POST /rollback` - Rollback database to a specific timestamp
 - `GET /compare?start={timestamp}&end={timestamp}` - Compare data between two timestamps
 
