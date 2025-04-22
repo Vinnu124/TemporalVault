@@ -21,20 +21,16 @@ A Time-Traveling Database API that allows querying data from any past point in t
 
 ## Setup
 
-1. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
 
-2. Set up environment variables:
+1. Set up environment variables:
 
 ```bash
 cp .env.example .env
 
 ```
 
-3. Run the application:
+2. Run the application:
 
 ```bash
 docker compose up
