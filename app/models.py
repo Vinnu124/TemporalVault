@@ -11,8 +11,11 @@ class TemporalRecord(Base):
     record_id = Column(String, nullable=False)
     version = Column(String, nullable=False)
     data = Column(JSON, nullable=False)
-    timestamp = Column(DateTime(timezone=True),
-                       default=func.now(), nullable=False)
+    timestamp = Column(
+        DateTime(timezone=True),
+        default=func.date_trunc('second', func.now()),  # Truncate to seconds
+        nullable=False
+    )
     previous_version = Column(String, nullable=True)
 
     __table_args__ = (

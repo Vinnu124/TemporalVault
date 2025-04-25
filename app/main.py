@@ -7,6 +7,8 @@ from typing import Optional, List
 import json
 import redis
 import os
+import parsedatetime
+from datetime import datetime
 from dotenv import load_dotenv
 from prometheus_client import Counter, Histogram, make_asgi_app
 from prometheus_client.core import CollectorRegistry
@@ -99,37 +101,55 @@ async def create_record(
 
 
 @app.get("/query")
-async def query_record(
-    record_id: str,
-    timestamp: datetime = Query(..., description="Timestamp to query data at"),
+async def query_records(
+    timestamp: str = Query(..., description="Timestamp to query data at (e.g., 'yesterday at 4:00 PM')"),
     db: Session = Depends(get_db)
 ):
-    """Query a record at a specific timestamp"""
+    """Query all records at or before a specific timestamp with Redis caching"""
+    # Parse the natural language timestamp
+    cal = parsedatetime.Calendar()
+    parsed_time, _ = cal.parseDT(timestamp, datetime.now())  # Parse relative to the current time
+    timestamp = parsed_time.replace(microsecond=0)  # Truncate microseconds for consistency
+
+    # Generate a cache key based on the timestamp
+    cache_key = f"query:{timestamp.isoformat()}"
+
+    # Check if the result is already in the cache
+    cached_data = redis_client.get(cache_key)
+    if cached_data:
+        cache_hits.inc()  # Increment cache hit metric
+        return json.loads(cached_data)
+
+      
+
     with query_latency.labels(endpoint='query').time():
-        # Try cache first
-        cache_key = f"record:{record_id}:{timestamp.isoformat()}"
-        cached_data = redis_client.get(cache_key)
-        if cached_data:
-            cache_hits.inc()
-            return json.loads(cached_data)
-
-        # Find the appropriate version
-        record = db.query(TemporalRecord).filter(
-            TemporalRecord.record_id == record_id,
+        # Query all records with a timestamp <= the provided timestamp
+        records = db.query(TemporalRecord).filter(
             TemporalRecord.timestamp <= timestamp
-        ).order_by(TemporalRecord.timestamp.desc()).first()
+        ).order_by(TemporalRecord.timestamp.desc()).all()
 
-        if not record:
-            raise HTTPException(status_code=404, detail="Record not found")
+        if not records:
+            raise HTTPException(status_code=404, detail="No records found for the specified timestamp")
 
-        # Cache the result
-        redis_client.setex(cache_key, 3600, json.dumps(record.data))
+        # Format the response
+        result = [
+            {
+                "record_id": record.record_id,
+                "version": record.version,
+                "data": record.data,
+                "timestamp": record.timestamp.isoformat(),
+                "previous_version": record.previous_version
+            }
+            for record in records
+        ]
+
+        # Store the result in Redis with a 1-hour expiration time
+        redis_client.setex(cache_key, 3600, json.dumps(result))
 
         # Record metrics
         record_operations.labels(operation_type='query').inc()
 
-        return record.data
-
+        return {"timestamp": timestamp.isoformat(), "records": result}
 
 @app.post("/rollback")
 async def rollback_database(

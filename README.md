@@ -40,7 +40,7 @@ docker compose up
 
 - `POST /records?record_id=abc123&data={"name":"John Doe","email":"johndoe@example.com"}` -Records data
 ![records](img/record.png)
-- `GET /query?record_id={record_id}&timestamp={timestamp}` - Query data at a specific timestamp
+- `GET /query?timestamp={timestamp}` - Query data at a specific timestamp
 ![query](img/qeury.png)
 - `POST /rollback` - Rollback database to a specific timestamp
 ![rollback](img/rollback.png)
