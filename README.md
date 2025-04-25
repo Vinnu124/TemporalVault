@@ -41,7 +41,7 @@ docker compose up
 - `POST /records?record_id=abc123&data={"name":"John Doe","email":"johndoe@example.com"}` -Records data
 ![records](img/record.png)
 - `GET /query?timestamp={timestamp}` - Query data at a specific timestamp
-![query](img/qeury.png)
+![query](img/query.png)
 - `POST /rollback` - Rollback database to a specific timestamp
 ![rollback](img/rollback.png)
 - `GET /compare?start={timestamp}&end={timestamp}` - Compare data between two timestamps
