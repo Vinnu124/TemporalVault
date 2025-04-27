@@ -270,36 +270,74 @@ async def get_rollback_history(
 @app.get("/compare")
 async def compare_records(
     record_id: str,
-    start_timestamp: datetime,
-    end_timestamp: datetime,
+    start: Optional[datetime] = Query(None, description="Start timestamp for comparison"),
+    end: Optional[datetime] = Query(None, description="End timestamp for comparison"),
     db: Session = Depends(get_db)
 ):
-    """Compare a record between two timestamps"""
+    """Compare a record between two timestamps or between its first and last occurrences in the database"""
     with query_latency.labels(endpoint='compare').time():
+        # If start or end is not provided, determine the range from the database
+        if not start:
+            start_record = db.query(TemporalRecord).filter(
+                TemporalRecord.record_id == record_id
+            ).order_by(TemporalRecord.timestamp.asc()).first()
+            if not start_record:
+                raise HTTPException(status_code=404, detail="Record not found in the database")
+            start = start_record.timestamp
+
+        if not end:
+            end_record = db.query(TemporalRecord).filter(
+                TemporalRecord.record_id == record_id
+            ).order_by(TemporalRecord.timestamp.desc()).first()
+            if not end_record:
+                raise HTTPException(status_code=404, detail="Record not found in the database")
+            end = end_record.timestamp
+
+        # Fetch the record at the start timestamp
         start_record = db.query(TemporalRecord).filter(
             TemporalRecord.record_id == record_id,
-            TemporalRecord.timestamp <= start_timestamp
+            TemporalRecord.timestamp <= start
         ).order_by(TemporalRecord.timestamp.desc()).first()
 
+        # Fetch the record at the end timestamp
         end_record = db.query(TemporalRecord).filter(
             TemporalRecord.record_id == record_id,
-            TemporalRecord.timestamp <= end_timestamp
+            TemporalRecord.timestamp <= end
         ).order_by(TemporalRecord.timestamp.desc()).first()
 
         if not start_record or not end_record:
             raise HTTPException(
-                status_code=404, detail="Records not found for the specified timestamps")
+                status_code=404, detail="Records not found for the specified timestamps"
+            )
 
         # Record metrics
         record_operations.labels(operation_type='compare').inc()
 
-        return {
-            "start": start_record.data,
-            "end": end_record.data,
-            "changes": {
-                key: {"from": start_record.data.get(
-                    key), "to": end_record.data.get(key)}
-                for key in set(start_record.data.keys()) | set(end_record.data.keys())
-                if start_record.data.get(key) != end_record.data.get(key)
+        try:
+            # Attempt to parse data as JSON
+            start_data = json.loads(start_record.data) if isinstance(start_record.data, str) else start_record.data
+            end_data = json.loads(end_record.data) if isinstance(end_record.data, str) else end_record.data
+
+            # If both are JSON, compare them
+            changes = {
+                key: {"from": start_data.get(key), "to": end_data.get(key)}
+                for key in set(start_data.keys()) | set(end_data.keys())
+                if start_data.get(key) != end_data.get(key)
             }
-        }
+
+            return {
+                "start": start_data,
+                "end": end_data,
+                "changes": changes
+            }
+
+        except (json.JSONDecodeError, TypeError):
+            # If the data is not JSON, return it as plain text
+            return {
+                "start": start_record.data,
+                "end": end_record.data,
+                "changes": {
+                    "from": start_record.data,
+                    "to": end_record.data
+                }
+            }
