@@ -17,7 +17,7 @@ A Time-Traveling Database API that allows querying data from any past point in t
 - Storage Engine: Append-only log (PostgreSQL JSONB)
 - Query Optimization: B-tree indexes + Redis cache
 - Containerization: Docker
-- Monitoring: Grafana + Prometheus
+- Monitoring:Prometheus
 
 ## Setup
 
